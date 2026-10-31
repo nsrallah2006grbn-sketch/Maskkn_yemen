@@ -33,7 +33,7 @@ jobs:
       - name: Recreate Android Project Structure
         run: |
           rm -rf android
-          flutter create . --platforms=android --org com.maskani.yemen
+          flutter create . --project-name=maskani_app --platforms=android --org com.maskani.yemen
 
       - name: Build APK
         run: flutter build apk --release
