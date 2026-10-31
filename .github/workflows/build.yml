@@ -1,43 +1,52 @@
-name: Build Flutter APK
+name: Build Maskani Yemen Pro APK
 
 on:
   push:
+    branches: [ main, master ]
+  pull_request:
     branches: [ main, master ]
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Java
-        uses: actions/setup-java@v3
+      - name: Set up Java Development Kit (JDK 17)
+        uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Set up Flutter
+      - name: Set up Flutter SDK
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.19.0'
           channel: 'stable'
 
-      - name: Create Flutter Project Structure
+      - name: Prepare Flutter Project Structure
         run: |
-          flutter create . --org com.maskani.yemen --project-name maskani_app --platforms android
+          # إنشاء هيكل مشروع أندرويد إن لم يكن موجوداً
+          if [ ! -d "android" ]; then
+            flutter create . --org com.maskani.yemen --project-name maskani_app --platforms android
+          fi
+          
+          # التأكد من وجود مجلد lib وتحريك main.dart إليه إن وجد بالخارج
           mkdir -p lib
-          # تأكد أن ملف الـ main.dart في مكانه الصحيح
-          if [ -f "main.dart" ]; then mv main.dart lib/main.dart; fi
+          if [ -f "main.dart" ]; then
+            mv main.dart lib/main.dart
+          fi
 
-      - name: Install dependencies
+      - name: Install Dependencies
         run: flutter pub get
 
-      - name: Build APK
+      - name: Build Android Release APK
         run: flutter build apk --release
 
-      - name: Upload APK
+      - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: maskani-app-release
+          name: maskani-pro-app-release
           path: build/app/outputs/flutter-apk/app-release.apk
