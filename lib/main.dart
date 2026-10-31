@@ -1,509 +1,349 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 void main() {
-  runApp(MaskaniApp());
+  runApp(const MaskaniApp());
 }
 
 class MaskaniApp extends StatelessWidget {
+  const MaskaniApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'مسكني اليمن - النسخة النهائية المضمونة',
-      theme: ThemeData(
-        primarySwatch: Colors.indigo,
-        fontFamily: 'Segoe UI',
-      ),
+      title: 'مسكني اليمن',
       debugShowCheckedModeBanner: false,
-      home: LoginScreen(),
+      theme: ThemeData(
+        useMaterial3: true,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF1E293B),
+          primary: const Color(0xFF0F172A),
+          secondary: const Color(0xFF25D366), // لون الواتساب الأخضر المميز
+          background: const Color(0xFFF8FAFC),
+        ),
+        fontFamily: 'Segoe UI',
+        cardTheme: CardTheme(
+          elevation: 2,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        ),
+      ),
+      home: const PhoneAuthScreen(),
     );
   }
 }
 
-// ==========================================
-// 1. شاشة تسجيل الدخول المزدوجة (عميل / وكيل / أدمن)
-// ==========================================
-class LoginScreen extends StatefulWidget {
+// 1. شاشة إدخال رقم الجوال وطلب الكود عبر الواتساب
+class PhoneAuthScreen extends StatefulWidget {
+  const PhoneAuthScreen({super.key});
+
   @override
-  _LoginScreenState createState() => _LoginScreenState();
+  State<PhoneAuthScreen> createState() => _PhoneAuthScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
-  String userType = 'client'; // client أو agent أو admin
-  final _nameController = TextEditingController();
+class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
   final _phoneController = TextEditingController();
-  final _phone2Controller = TextEditingController(); 
-  bool agreedToStrictTerms = false;
 
-  void _handleLogin() {
-    if (_nameController.text.isEmpty || _phoneController.text.isEmpty) {
+  // دالة لتوليد كود عشوائي من 4 أرقام وفتح الواتساب لإرساله
+  Future<void> _sendOtpViaWhatsApp() async {
+    final phone = _phoneController.text.trim();
+    if (phone.isEmpty || phone.length < 9) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('الرجاء إدخال الاسم ورقم الجوال الأساسي')),
+        const SnackBar(content: Text('الرجاء إدخال رقم جوال صحيح (مثال: 77XXXXXXX)')),
       );
       return;
     }
 
-    // دخول الأدمن (صاحب التطبيق) برقم خاص
-    if (_phoneController.text == "777000000" && userType == 'admin') {
-      Navigator.pushReplacement(
+    // إذا كان رقم الأدمن الخاص بك، نثبت كود خاص أو نولد كود عشوائي
+    String generatedCode = (phone == "777000000") ? "0000" : (1000 + Random().nextInt(9000)).toString();
+
+    // تجهيز نص رسالة الواتساب
+    String message = "مرحباً بك في تطبيق مسكني اليمن 🏢.\nرمز التحقق الخاص بك هو: *$generatedCode*\nلا تقم بمشاركة الكود مع أي شخص.";
+    
+    // تنسيق رقم الهاتف (تأكد من إضافة رمز الدولة اليمنية 967 تلقائياً إذا لم يكتبه المستخدم)
+    String formattedPhone = phone.startsWith('967') ? phone : '967$phone';
+
+    // رابط الواتساب الرسمي المباشر
+    final whatsappUrl = Uri.parse("https://wa.me/$formattedPhone?text=${Uri.encodeComponent(message)}");
+
+    try {
+      if (await canLaunchUrl(whatsappUrl)) {
+        await launchUrl(whatsappUrl, mode: LaunchMode.externalApplication);
+        
+        // الانتقال لصفحة إدخال الكود بعد فتح الواتساب
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => OtpVerifyScreen(phoneNumber: phone, expectedCode: generatedCode),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('تعذر فتح تطبيق الواتساب في جهازك')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('حدث خطأ: $e')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(height: 40),
+              Icon(Icons.house_siding_rounded, size: 70, color: Theme.of(context).colorScheme.primary),
+              const SizedBox(height: 16),
+              const Text(
+                'مسكني اليمن',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'التحقق الآمن والمجاني عبر الواتساب 💬',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey, fontSize: 14),
+              ),
+              const SizedBox(height: 50),
+              const Text('أدخل رقم جوالك لتلقي كود التحقق:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _phoneController,
+                keyboardType: TextInputType.phone,
+                decoration: InputDecoration(
+                  hintText: '77XXXXXXX',
+                  prefixIcon: const Icon(Icons.phone_android_rounded),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  filled: true,
+                  fillColor: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF25D366),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: _sendOtpViaWhatsApp,
+                icon: const Icon(Icons.send, color: Colors.white),
+                label: const Text('إرسال الكود عبر الواتساب 📲', style: TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.bold)),
+              ),
+              const Spacer(),
+              TextButton(
+                onPressed: () {
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => const TermsAndConditionsScreen()));
+                },
+                child: const Text('شروط وأحكام الاستخدام والسياسة الصارمة', style: TextStyle(decoration: TextDecoration.underline)),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// 2. شاشة تأكيد الكود الذي وصل عبر الواتساب
+class OtpVerifyScreen extends StatefulWidget {
+  final String phoneNumber;
+  final String expectedCode;
+  const OtpVerifyScreen({super.key, required this.phoneNumber, required this.expectedCode});
+
+  @override
+  State<OtpVerifyScreen> createState() => _OtpVerifyScreenState();
+}
+
+class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
+  final _otpController = TextEditingController();
+
+  void _verifyCode() {
+    // إذا كان رقم الأدمن الخاص بك
+    if (widget.phoneNumber == "777000000" && _otpController.text == "0000") {
+      Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (context) => AdminDashboardScreen()),
+        MaterialPageRoute(builder: (context) => const AdminMainDashboard()),
+        (route) => false,
       );
       return;
     }
 
-    if (userType == 'agent' && !agreedToStrictTerms) {
+    if (_otpController.text == widget.expectedCode) {
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => const MainNavigationShell()),
+        (route) => false,
+      );
+    } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('يجب الموافقة على الشروط الصارمة وعمولة التطبيق 5%')),
+        const SnackBar(content: Text('كود التحقق غير صحيح، تأكد من الرسالة في الواتساب')),
       );
-      return;
     }
+  }
 
-    if (userType == 'agent') {
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Text('تم إرسال طلبك للأدمن ⏳'),
-          content: Text('حسابك قيد المراجعة. لن تستطيع إضافة عقارات حتى يوافق صاحب التطبيق يدوياً لضمان الأمان.'),
-          actions: [
-            TextButton(
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('تأكيد الكود')),
+      body: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('تم تحويلك للواتساب لإرسال الكود إلى الرقم:\n${widget.phoneNumber}', textAlign: TextAlign.center, style: const TextStyle(fontSize: 16)),
+            const SizedBox(height: 30),
+            TextField(
+              controller: _otpController,
+              keyboardType: TextInputType.number,
+              textAlign: TextAlign.center,
+              maxLength: 4,
+              style: const TextStyle(fontSize: 24, letterSpacing: 8, fontWeight: FontWeight.bold),
+              decoration: InputDecoration(
+                hintText: '0 0 0 0',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              onPressed: _verifyCode,
+              child: const Text('تحقق ودخول التطبيق 🚀', style: TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// 3. الشاشة الرئيسية الفارغة والتفاعلية
+class MainNavigationShell extends StatefulWidget {
+  const MainNavigationShell({super.key});
+
+  @override
+  State<MainNavigationShell> createState() => _MainNavigationShellState();
+}
+
+class _MainNavigationShellState extends State<MainNavigationShell> {
+  int _currentIndex = 0;
+  final List> _realProperties = []; // فارغ تماماً
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('مسكني اليمن 🏢', style: TextStyle(fontWeight: FontWeight.bold)),
+      ),
+      body: IndexedStack(
+        index: _currentIndex,
+        children: [
+          _buildExploreTab(),
+          _buildSavedTab(),
+          _buildMyAdsTab(),
+          _buildProfileTab(),
+        ],
+      ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _currentIndex,
+        onDestinationSelected: (idx) => setState(() => _currentIndex = idx),
+        destinations: const [
+          NavigationDestination(icon: Icon(Icons.search), label: 'استكشف'),
+          NavigationDestination(icon: Icon(Icons.favorite_border), label: 'المفضلة'),
+          NavigationDestination(icon: Icon(Icons.add_circle_outline), label: 'إعلاناتي'),
+          NavigationDestination(icon: Icon(Icons.person_outline), label: 'حسابي'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildExploreTab() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.house_outlined, size: 80, color: Colors.grey[400]),
+            const SizedBox(height: 16),
+            const Text('لا توجد عقارات معروضة حالياً', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            const Text('كن أول من يضيف عقاراً حقيقياً في المنصة!', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
               onPressed: () {
-                Navigator.pop(context);
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (context) => HomeScreen(userType: 'agent_pending', userName: _nameController.text)),
-                );
+                Navigator.push(context, MaterialPageRoute(builder: (context) => const AddRealPropertyScreen()));
               },
-              child: Text('حسناً'),
+              icon: const Icon(Icons.add),
+              label: const Text('إضافة عقار جديد'),
             )
           ],
         ),
-      );
-    } else {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => HomeScreen(userType: 'client', userName: _nameController.text)),
-      );
-    }
+      ),
+    );
   }
+
+  Widget _buildSavedTab() => const Center(child: Text('المفضلة فارغة'));
+  Widget _buildMyAdsTab() => const Center(child: Text('ليس لديك إعلانات مضافة'));
+  Widget _buildProfileTab() {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        const CircleAvatar(radius: 40, child: Icon(Icons.person, size: 40)),
+        const SizedBox(height: 12),
+        const Text('مستخدم موثق', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+        const Divider(height: 40),
+        ListTile(
+          leading: const Icon(Icons.gavel),
+          title: const Text('الشروط والأحكام الصارمة'),
+          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const TermsAndConditionsScreen())),
+        ),
+        ListTile(
+          leading: const Icon(Icons.logout, color: Colors.red),
+          title: const Text('تسجيل الخروج', style: TextStyle(color: Colors.red)),
+          onTap: () => Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (context) => const PhoneAuthScreen()), (r) => false),
+        ),
+      ],
+    );
+  }
+}
+
+// 4. شاشة إضافة عقار
+class AddRealPropertyScreen extends StatelessWidget {
+  const AddRealPropertyScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('تسجيل الدخول - مسكني اليمن 🔒')),
-      body: SingleChildScrollView(
-        padding: EdgeInsets.all(20),
+      appBar: AppBar(title: const Text('إضافة عقار جديد')),
+      body: Padding(
+        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('اختر صففتك في التطبيق:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            Row(
-              children: [
-                Expanded(
-                  child: RadioListTile<String>(
-                    title: Text('عميل (مستأجر)'),
-                    value: 'client',
-                    groupValue: userType,
-                    onChanged: (val) => setState(() => userType = val!),
-                  ),
-                ),
-                Expanded(
-                  child: RadioListTile<String>(
-                    title: Text('وكيل / سمسار'),
-                    value: 'agent',
-                    groupValue: userType,
-                    onChanged: (val) => setState(() => userType = val!),
-                  ),
-                ),
-              ],
-            ),
-            TextButton(
-              onPressed: () => setState(() => userType = 'admin'),
-              child: Text('دخول صاحب التطبيق (الأدمن) 🔑', style: TextStyle(color: Colors.red)),
-            ),
-            Divider(),
-            TextField(
-              controller: _nameController,
-              decoration: InputDecoration(
-                labelText: userType == 'agent' ? 'الاسم الرباعي الكامل (مطابق للبطاقة)' : 'الاسم الثلاثي',
-                prefixIcon: Icon(Icons.person),
-              ),
-            ),
-            SizedBox(height: 15),
-            TextField(
-              controller: _phoneController,
-              keyboardType: TextInputType.phone,
-              decoration: InputDecoration(
-                labelText: userType == 'admin' ? 'رقم الأدمن الخاص' : 'رقم الجوال اليمني الأساسي',
-                prefixIcon: Icon(Icons.phone),
-              ),
-            ),
-            
-            if (userType == 'agent') ...[
-              SizedBox(height: 15),
-              TextField(
-                controller: _phone2Controller,
-                keyboardType: TextInputType.phone,
-                decoration: InputDecoration(
-                  labelText: 'أرقام تواصل إضافية (تضاف لصفحتك)',
-                  prefixIcon: Icon(Icons.phone_android),
-                ),
-              ),
-              SizedBox(height: 15),
-              Container(
-                padding: EdgeInsets.all(12),
-                decoration: BoxDecoration(color: Colors.red[50], border: Border.all(color: Colors.red)),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('⚠️ شروط الأمان الصارمة للوكلاء:', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red)),
-                    Text('1. لا يُقبل الوكيل إلا بموافقة شخصية من "صاحب التطبيق".'),
-                    Text('2. رفع صورة سيلفي واضحة مع البطاقة الشخصية.'),
-                    Text('3. الالتزام بدفع عمولة التطبيق (5%) من كل صفقة تتم داخله.'),
-                  ],
-                ),
-              ),
-              ElevatedButton.icon(
-                onPressed: () {},
-                icon: Icon(Icons.camera_alt),
-                label: Text('التقاط صورة سيلفي مع البطاقة الشخصية 📸'),
-              ),
-              CheckboxListTile(
-                title: Text('أتعهد بدفع 5% عمولة للتطبيق وأقبل بالحظر الفوري في حال التحايل', style: TextStyle(fontSize: 11)),
-                value: agreedToStrictTerms,
-                onChanged: (val) => setState(() => agreedToStrictTerms = val!),
-              ),
-            ],
-
-            if (userType == 'client') ...[
-              SizedBox(height: 15),
-              OutlinedButton.icon(
-                onPressed: () {},
-                icon: Icon(Icons.qr_code_scanner),
-                label: Text('تصوير كود (باركود) البطاقة الشخصية للتحقق السريع 🪪'),
-              ),
-            ],
-
-            SizedBox(height: 30),
+            const TextField(decoration: InputDecoration(labelText: 'عنوان العقار')),
+            const SizedBox(height: 16),
+            const TextField(keyboardType: TextInputType.number, decoration: InputDecoration(labelText: 'السعر')),
+            const SizedBox(height: 24),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(padding: EdgeInsets.all(15), backgroundColor: userType == 'admin' ? Colors.red : Colors.indigo),
-              onPressed: _handleLogin,
-              child: Text(userType == 'admin' ? 'دخول لوحة تحكم الأدمن' : 'تسجيل وإرسال الطلب', style: TextStyle(fontSize: 18, color: Colors.white)),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ==========================================
-// 2. لوحة تحكم الأدمن (صاحب التطبيق - السيطرة الكاملة)
-// ==========================================
-class AdminDashboardScreen extends StatefulWidget {
-  @override
-  _AdminDashboardScreenState createState() => _AdminDashboardScreenState();
-}
-
-class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
-  List<String> pendingAgents = ["أحمد محمد (بانتظار موافقتك)", "خالد عبد الله (بانتظار موافقتك)"];
-  List<String> pendingProperties = ["شقة مفروشة في الحوبان - 500 سعودي", "دور مستقل في المسبح - 800 دولار"];
-  List<String> reports = ["بلاغ ضد إعلان وهمي رقم #102", "بلاغ عن وكيل حاول التحايل خارج التطبيق"];
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('لوحة تحكم الأدمن (صاحب التطبيق) 🛡️'),
-        backgroundColor: Colors.red[900],
-        actions: [
-          IconButton(
-            icon: Icon(Icons.logout),
-            onPressed: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => LoginScreen())),
-          )
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('📊 إحصائيات التطبيق:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                Card(child: Padding(padding: EdgeInsets.all(16), child: Text('العمولات المحصلة:\n1,450', textAlign: TextAlign.center))),
-                Card(child: Padding(padding: EdgeInsets.all(16), child: Text('العقارات النشطة:\n52 عقار', textAlign: TextAlign.center))),
-              ],
-            ),
-            Divider(height: 30),
-
-            // موافقة الوكلاء
-            Text('👥 طلبات انضمام الوكلاء (بحاجة لموافقتك):', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.red)),
-            ListView.builder(
-              shrinkWrap: true,
-              physics: NeverScrollableScrollPhysics(),
-              itemCount: pendingAgents.length,
-              itemBuilder: (context, index) {
-                return Card(
-                  child: ListTile(
-                    leading: Icon(Icons.person_add, color: Colors.orange),
-                    title: Text(pendingAgents[index]),
-                    subtitle: Text('تم رفع السيلفي + البطاقة + الاسم الرباعي'),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: Icon(Icons.check, color: Colors.green),
-                          onPressed: () {
-                            setState(() => pendingAgents.removeAt(index));
-                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تمت الموافقة على الوكيل وتفعيل حسابه!')));
-                          },
-                        ),
-                        IconButton(
-                          icon: Icon(Icons.close, color: Colors.red),
-                          onPressed: () {
-                            setState(() => pendingAgents.removeAt(index));
-                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تم رفض وحظر الوكيل!')));
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-            if (pendingAgents.isEmpty) Text('لا توجد طلبات وكلاء معلقة ✅', style: TextStyle(color: Colors.grey)),
-
-            Divider(height: 30),
-
-            // مراجعة العقارات
-            Text('🏠 عقارات بانتظار مراجعتك ونشرها:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.indigo)),
-            ListView.builder(
-              shrinkWrap: true,
-              physics: NeverScrollableScrollPhysics(),
-              itemCount: pendingProperties.length,
-              itemBuilder: (context, index) {
-                return Card(
-                  child: ListTile(
-                    leading: Icon(Icons.home, color: Colors.blue),
-                    title: Text(pendingProperties[index]),
-                    trailing: ElevatedButton(
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                      onPressed: () {
-                        setState(() => pendingProperties.removeAt(index));
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تم اعتماد نشر العقار!')));
-                      },
-                      child: Text('موافقة ونشر'),
-                    ),
-                  ),
-                );
-              },
-            ),
-            if (pendingProperties.isEmpty) Text('جميع العقارات تم مراجعتها ونشرها ✅', style: TextStyle(color: Colors.grey)),
-
-            Divider(height: 30),
-
-            // مركز البلاغات (ضد النصب)
-            Text('🚨 مركز البلاغات ضد النصب والاحتيال:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.red[700])),
-            ListView.builder(
-              shrinkWrap: true,
-              physics: NeverScrollableScrollPhysics(),
-              itemCount: reports.length,
-              itemBuilder: (context, index) {
-                return Card(
-                  color: Colors.red[50],
-                  child: ListTile(
-                    leading: Icon(Icons.warning, color: Colors.red),
-                    title: Text(reports[index]),
-                    trailing: ElevatedButton(
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                      onPressed: () {
-                        setState(() => reports.removeAt(index));
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تم اتخاذ إجراء وحظر المخالف بنجاح!')));
-                      },
-                      child: Text('اتخاذ إجراء وحظر'),
-                    ),
-                  ),
-                );
-              },
-            ),
-            if (reports.isEmpty) Text('لا توجد بلاغات نصب حالياً 🎉', style: TextStyle(color: Colors.green)),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ==========================================
-// 3. الشاشة الرئيسية وإضافة عقار (تحديد GPS + عملات + 5% عمولة)
-// ==========================================
-class HomeScreen extends StatelessWidget {
-  final String userType;
-  final String userName;
-
-  HomeScreen({required this.userType, required this.userName});
-
-  @override
-  Widget build(BuildContext context) {
-    bool isPendingAgent = userType == 'agent_pending';
-
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('مسكني اليمن - مرحباً $userName'),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.chat),
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => ChatScreen())),
-          )
-        ],
-      ),
-      body: Center(
-        child: Padding(
-          padding: EdgeInsets.all(20),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (isPendingAgent) ...[
-                Icon(Icons.hourglass_empty, size: 60, color: Colors.orange),
-                SizedBox(height: 15),
-                Text('حسابك قيد المراجعة من قِبل "الأدمن" (صاحب التطبيق)', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
-                SizedBox(height: 10),
-                Text('لن تستطيع إضافة عقارات حتى يوافق عليك صاحب التطبيق يدوياً.', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
-              ] else ...[
-                Text('مرحباً بك في منصة مسكني الآمنة 🏡', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                SizedBox(height: 20),
-                ElevatedButton.icon(
-                  icon: Icon(Icons.add_home),
-                  label: Text('إضافة عقار جديد (GPS + العملات الثلاث)'),
-                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => AddPropertyScreen())),
-                ),
-                SizedBox(height: 15),
-                ElevatedButton.icon(
-                  icon: Icon(Icons.message),
-                  label: Text('فتح الدردشة المباشرة والعقود 💬'),
-                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => ChatScreen())),
-                ),
-              ],
-              SizedBox(height: 30),
-              TextButton(
-                onPressed: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => LoginScreen())),
-                child: Text('تسجيل الخروج', style: TextStyle(color: Colors.red)),
-              )
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// شاشة إضافة العقار
-class AddPropertyScreen extends StatefulWidget {
-  @override
-  _AddPropertyScreenState createState() => _AddPropertyScreenState();
-}
-
-class _AddPropertyScreenState extends State<AddPropertyScreen> {
-  final _priceController = TextEditingController();
-  String _selectedCurrency = 'SAR';
-  double yerRate = 1400.0;
-  double usdRate = 0.265;
-  String locationText = 'لم يتم تحديد الموقع';
-  bool isLocating = false;
-  String propertyStatus = 'متاح للإيجار 🟢'; // متاح أو تم الإيجار
-
-  void _getAutoLocation() async {
-    setState(() => isLocating = true);
-    await Future.delayed(Duration(seconds: 1));
-    setState(() {
-      locationText = 'تم تحديد الموقع بدقة عبر الـ GPS 📍 (تعز)';
-      isLocating = false;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    double inputVal = double.tryParse(_priceController.text) ?? 0.0;
-    double inSAR = _selectedCurrency == 'SAR' ? inputVal : (_selectedCurrency == 'YER' ? inputVal / yerRate : inputVal / usdRate);
-    double inYER = inSAR * yerRate;
-    double inUSD = inSAR * usdRate;
-    double commission = inSAR * 0.05; // 5% عمولة التطبيق
-
-    return Scaffold(
-      appBar: AppBar(title: Text('إضافة عقار - نظام الوكيل الموثق')),
-      body: SingleChildScrollView(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            TextField(decoration: InputDecoration(labelText: 'عنوان العقار ووصفه (مثال: شقة في المسبح دور ثاني)')),
-            SizedBox(height: 15),
-            
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-              onPressed: _getAutoLocation,
-              icon: Icon(Icons.my_location),
-              label: Text(isLocating ? 'جاري التقاط الموقع...' : 'مشاركة موقعي الحالي تلقائياً (GPS 📍)'),
-            ),
-            Text(locationText, style: TextStyle(color: Colors.grey[700], fontWeight: FontWeight.bold)),
-            SizedBox(height: 20),
-
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _priceController,
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(labelText: 'قيمة الإيجار'),
-                    onChanged: (val) => setState(() {}),
-                  ),
-                ),
-                SizedBox(width: 10),
-                DropdownButton<String>(
-                  value: _selectedCurrency,
-                  items: ['SAR', 'YER', 'USD'].map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-                  onChanged: (val) => setState(() => _selectedCurrency = val!),
-                ),
-              ],
-            ),
-            SizedBox(height: 15),
-
-            // صندوق العملات والعمولة
-            Container(
-              padding: EdgeInsets.all(12),
-              decoration: BoxDecoration(color: Colors.blue[50], borderRadius: BorderRadius.circular(8)),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('الأسعار المحسوبة تلقائياً للعملاء:', style: TextStyle(fontWeight: FontWeight.bold)),
-                  Text('🇸🇦 بالسعودي: ${inSAR.toStringAsFixed(1)} SAR'),
-                  Text('🇾🇪 باليمني: ${inYER.toStringAsFixed(0)} YER'),
-                  Text('🇺🇸 بالدولار: ${inUSD.toStringAsFixed(1)} USD'),
-                  Divider(),
-                  Text('عمولة التطبيق المحفوظة (5%): ${commission.toStringAsFixed(1)} SAR', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
-                ],
-              ),
-            ),
-            SizedBox(height: 15),
-
-            // اختيار حالة العقار
-            DropdownButtonFormField<String>(
-              value: propertyStatus,
-              items: ['متاح للإيجار 🟢', 'تم الإيجار 🔴'].map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
-              onChanged: (val) => setState(() => propertyStatus = val!),
-              decoration: InputDecoration(labelText: 'حالة العقار الحالية'),
-            ),
-            SizedBox(height: 25),
-
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(padding: EdgeInsets.all(15)),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo, padding: const EdgeInsets.all(16)),
               onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تم رفع العقار وإرساله للأدمن للمراجعة!')));
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم إرسال العقار للأدمن للمراجعة بنجاح!')));
                 Navigator.pop(context);
               },
-              child: Text('نشر العقار للمراجعة 🚀'),
-            ),
+              child: const Text('نشر العقار 🚀', style: TextStyle(color: Colors.white)),
+            )
           ],
         ),
       ),
@@ -511,146 +351,33 @@ class _AddPropertyScreenState extends State<AddPropertyScreen> {
   }
 }
 
-// ==========================================
-// 4. شاشة الدردشة الآمنة، زر البلاغ، وعقد العمولة
-// ==========================================
-class ChatScreen extends StatefulWidget {
-  @override
-  _ChatScreenState createState() => _ChatScreenState();
-}
-
-class _ChatScreenState extends State<ChatScreen> {
-  final List<String> messages = [
-    "السلام عليكم، هل الشقة لا تزال متاحة؟",
-    "وعليكم السلام، نعم متاحة وتواصلنا تحت إشراف المنصة."
-  ];
-  final _msgController = TextEditingController();
-  bool contractAgreed = false;
-  bool isRated = false;
-
-  void _sendMessage() {
-    if (_msgController.text.isNotEmpty) {
-      setState(() {
-        messages.add(_msgController.text);
-        _msgController.clear();
-      });
-    }
-  }
-
-  // نافذة الإبلاغ عن النصب
-  void _showReportDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('🚨 الإبلاغ عن إعلان وهمي أو نصب'),
-        content: Text('هل تشك أن هذا الإعلان وهمي أو أن الطرف الآخر يحاول النصب؟ سيصل البلاغ مباشرة للوحة تحكم الأدمن لحظر الحساب فوراً.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: Text('إلغاء')),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تم إرسال البلاغ للأدمن بنجاح. شكراً لحرصك!')));
-            },
-            child: Text('تأكيد وإرسال للأدمن'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // نافذة تقييم الوكيل
-  void _showRatingDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('⭐ تقييم الوكيل والخدمة'),
-        content: Text('كيف كانت تجربتك في التعامل مع هذا الوكيل؟ تقييمك يساعد في بناء سمعة المنصة.'),
-        actions: [
-          ElevatedButton(
-            onPressed: () {
-              setState(() => isRated = true);
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('شكراً لتقييمك! تم حفظه في سجل الوكيل.')));
-            },
-            child: Text('تقييم 5 نجوم 🌟'),
-          ),
-        ],
-      ),
-    );
-  }
+// 5. لوحة تحكم الأدمن
+class AdminMainDashboard extends StatelessWidget {
+  const AdminMainDashboard({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('الدردشة الآمنة وعقد العمولة'),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.report_problem, color: Colors.amberAccent),
-            onPressed: _showReportDialog,
-            tooltip: 'إبلاغ عن نصب',
-          )
-        ],
-      ),
-      body: Column(
-        children: [
-          Container(
-            padding: EdgeInsets.all(10),
-            color: contractAgreed ? Colors.green[100] : Colors.amber[100],
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(contractAgreed ? '✅ العقد مفعل (عمولة 5% محفوظة للأدمن)' : '⚠️ اضغط موافقة عند إتمام الاتفاق'),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(backgroundColor: contractAgreed ? Colors.green : Colors.indigo),
-                  onPressed: () {
-                    setState(() => contractAgreed = !contractAgreed);
-                    if (contractAgreed) _showRatingDialog(); // إظهار التييم بعد الاتفاق
-                  },
-                  child: Text(contractAgreed ? 'العقد مفعل 🤝' : 'موافق وإبرام العقد'),
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: ListView.builder(
-              padding: EdgeInsets.all(10),
-              itemCount: messages.length,
-              itemBuilder: (context, index) {
-                return Align(
-                  alignment: index % 2 == 0 ? Alignment.centerRight : Alignment.centerLeft,
-                  child: Container(
-                    margin: EdgeInsets.symmetric(vertical: 4),
-                    padding: EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: index % 2 == 0 ? Colors.indigo[50] : Colors.grey[200],
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(messages[index]),
-                  ),
-                );
-              },
-            ),
-          ),
-          Padding(
-            padding: EdgeInsets.all(8.0),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _msgController,
-                    decoration: InputDecoration(hintText: 'اكتب رسالتك... (المحادثة مراقبة لضمان الأمان)'),
-                  ),
-                ),
-                IconButton(
-                  icon: Icon(Icons.send, color: Colors.indigo),
-                  onPressed: _sendMessage,
-                ),
-              ],
-            ),
-          ),
-        ],
+      appBar: AppBar(title: const Text('لوحة تحكم الأدمن 👑'), backgroundColor: Colors.red[900], foregroundColor: Colors.white),
+      body: const Center(child: Text('أنت الآن تحكم المنصة بصلاحيات كاملة ✅')),
+    );
+  }
+}
+
+// 6. الشروط والأحكام
+class TermsAndConditionsScreen extends StatelessWidget {
+  const TermsAndConditionsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('الشروط والأحكام الصارمة')),
+      body: const Padding(
+        padding: EdgeInsets.all(20),
+        child: Text(
+          'اتفاقية الاستخدام:\n1. الالتزام برفع بيانات حقيقية مطابقة للواقع.\n2. منع أي إعلانات وهمية تعرض الحساب للحظر النهائي.\n3. عمولة التطبيق هي 5% من قيمة العقار عند إتمام البيع أو الإيجار.',
+          style: TextStyle(fontSize: 16, height: 1.5),
+        ),
       ),
     );
   }
