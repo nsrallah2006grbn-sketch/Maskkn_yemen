@@ -11,9 +11,8 @@ import 'package:device_info_plus/device_info_plus.dart';
 import 'package:android_id/android_id.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-// إعدادات السيرفر والمسار الأساسي
 class AppConfig {
-  static const String baseUrl = 'http://10.0.2.2:8000'; // أو رابط سيرفرك المحلي / السحابي
+  static const String baseUrl = 'http://10.0.2.2:8000';
   static const String adminPhone = '777000000';
 }
 
@@ -340,6 +339,28 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                 icon: const Icon(Icons.key_rounded),
                 label: const Text('لدي رقم مميز — دخول سريع ⚡'),
               ),
+              if (_fp != null) ...[
+                const SizedBox(height: 20),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.teal.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(children: [
+                    Icon(Icons.phonelink_lock_rounded, size: 18, color: Colors.teal.shade700),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text('بصمة جهازك: ${_fp!.summary()}',
+                          style: TextStyle(fontSize: 11, color: Colors.teal.shade800)),
+                    ),
+                  ]),
+                ),
+                const SizedBox(height: 4),
+                Text('تُحفظ هذه البصمة مرة واحدة لمنع إنشاء أكثر من حساب بنفس الجوال 🔒',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
+              ],
               const SizedBox(height: 12),
               TextButton(
                 onPressed: () => Navigator.push(context,
@@ -422,6 +443,19 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
               onPressed: _verify,
               child: Text(widget.isNew ? 'تفعيل ودخول 🚀' : 'دخول 🚀',
                   style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.amber.shade50,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Colors.amber.shade200),
+              ),
+              child: const Text(
+                '🔑 هذا الرقم مميز دائم: احفظه في مكان آمن. ستستخدمه للدخول في أي وقت بدون رسائل جديدة، وهو مرتب بجهازك ورقمك ولا يعمل على غيرهما.',
+                style: TextStyle(fontSize: 12, height: 1.6),
+              ),
             ),
           ],
         ),
@@ -511,6 +545,11 @@ class _LoginWithCodeScreenState extends State<LoginWithCodeScreen> {
               child: _busy
                   ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                   : const Text('دخول 🚀', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            ),
+            const SizedBox(height: 16),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('نسيت رقمي المميز؟ أرسله مجدداً عبر واتساب'),
             ),
           ],
         ),
@@ -624,7 +663,7 @@ class ProfileTab extends StatelessWidget {
           ListTile(
             leading: const Icon(Icons.logout, color: Colors.red),
             title: const Text('تسجيل الخروج', style: TextStyle(color: Colors.red)),
-            onPressed: () async {
+            onTap: () async {
               await LocalAuthStore.clear();
               if (context.mounted) {
                 Navigator.pushAndRemoveUntil(context,
@@ -689,14 +728,14 @@ class AdminDashboard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Card(
-              color: const Color(0xFF0F172A),
+              color: const Color(0xFF0F766E),
               child: Padding(
                 padding: const EdgeInsets.all(20),
                 child: Column(
                   children: const [
                     Text('أنت مدير النظام بصلاحيات كاملة 👑', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
                     SizedBox(height: 8),
-                    Text('التحكم بالمستخدمين والعقارات ومراقبة الاحتيال', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                    Text('التحكم بالمستخدمين والعقارات ومراقبة الاحتيال', style: TextStyle(color: Colors.white70, fontSize: 13)),
                   ],
                 ),
               ),
