@@ -1,19 +1,19 @@
 name: maskani_app
-description: "مسكني اليمن Pro - تطبيق العقارات الموثوق"
+description: تطبيق مسكني اليمن Pro لإدارة العقارات والإيجارات.
 publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: '>=3.0.0 <4.0.0'
+  sdk: '>=3.3.0 <4.0.0'
 
 dependencies:
   flutter:
     sdk: flutter
-  url_launcher: ^6.2.5
-  http: ^1.2.0
-  device_info_plus: ^10.1.0
-  android_id: ^0.3.6
+  cupertino_icons: ^1.0.6
+  url_launcher: ^6.2.4
   shared_preferences: ^2.2.2
+  device_info_plus: ^10.1.0
+  android_id: ^0.4.0
 
 dev_dependencies:
   flutter_test:
