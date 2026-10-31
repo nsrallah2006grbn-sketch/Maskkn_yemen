@@ -30,6 +30,12 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Fix Gradle Wrapper
+        run: |
+          cd android
+          gradle wrapper --gradle-version 8.4
+          cd ..
+
       - name: Build APK
         run: flutter build apk --release
 
