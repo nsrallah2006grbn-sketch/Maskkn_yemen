@@ -231,7 +231,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                Card(child: Padding(padding: EdgeInsets.all(16), child: Text('العمولات المحصلة:\n$1,450', textAlign: TextAlign.center))),
+                Card(child: Padding(padding: EdgeInsets.all(16), child: Text('العمولات المحصلة:\n1,450', textAlign: TextAlign.center))),
                 Card(child: Padding(padding: EdgeInsets.all(16), child: Text('العقارات النشطة:\n52 عقار', textAlign: TextAlign.center))),
               ],
             ),
