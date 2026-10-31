@@ -26,17 +26,39 @@ jobs:
           flutter-version: '3.19.0'
           channel: 'stable'
 
+      - name: Create or Update pubspec.yaml
+        run: |
+          cat << 'EOF' > pubspec.yaml
+          name: maskani_app
+          description: "مسكني اليمن Pro"
+          publish_to: 'none'
+          version: 1.0.0+1
+
+          environment:
+            sdk: '>=3.0.0 <4.0.0'
+
+          dependencies:
+            flutter:
+              sdk: flutter
+            url_launcher: ^6.2.5
+            http: ^1.2.0
+            device_info_plus: ^10.1.0
+            android_id: ^0.3.6
+            shared_preferences: ^2.2.2
+
+          dev_dependencies:
+            flutter_test:
+              sdk: flutter
+            flutter_lints: ^3.0.0
+
+          flutter:
+            uses-material-design: true
+          EOF
+
       - name: Prepare Flutter Project Structure
         run: |
-          # إنشاء هيكل مشروع أندرويد إن لم يكن موجوداً
           if [ ! -d "android" ]; then
             flutter create . --org com.maskani.yemen --project-name maskani_app --platforms android
-          fi
-          
-          # التأكد من وجود مجلد lib وتحريك main.dart إليه إن وجد بالخارج
-          mkdir -p lib
-          if [ -f "main.dart" ]; then
-            mv main.dart lib/main.dart
           fi
 
       - name: Install Dependencies
