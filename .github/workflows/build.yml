@@ -2,12 +2,13 @@ name: Build Flutter APK
 
 on:
   push:
-    branches: [ "main", "master" ]
+    branches: [ main, master ]
   pull_request:
-    branches: [ "main", "master" ]
+    branches: [ main, master ]
 
 jobs:
   build:
+    name: Build APK for Android
     runs-on: ubuntu-latest
 
     steps:
@@ -23,23 +24,18 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.19.6'
+          flutter-version: '3.19.x' # يدعم Dart 3
           channel: 'stable'
           cache: true
 
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Recreate Android Project Structure
-        run: |
-          rm -rf android
-          flutter create . --project-name=maskani_app --platforms=android --org com.maskani.yemen
-
-      - name: Build APK
+      - name: Build APK (Release)
         run: flutter build apk --release
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: app-release
+          name: maskani-pro-release
           path: build/app/outputs/flutter-apk/app-release.apk
